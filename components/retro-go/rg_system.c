@@ -858,16 +858,22 @@ void rg_system_event(int event, void *arg)
 static void shutdown_cleanup(void)
 {
     exitCalled = true;
-    rg_display_clear(C_BLACK);                // Let the user know that something is happening
-    rg_gui_draw_hourglass();                  // ...
-    rg_system_event(RG_EVENT_SHUTDOWN, NULL); // Allow apps to save their state if they want
-    rg_audio_deinit();                        // Disable sound ASAP to avoid audio garbage
-    // rg_system_save_time();                    // RTC might save to storage, do it before
-    rg_storage_deinit();                      // Unmount storage
-    rg_input_wait_for_key(RG_KEY_ALL, 0, -1); // Wait for all keys to be released (boot is sensitive to GPIO0,32,33)
-    rg_input_deinit();                        // Now we can shutdown input
-    rg_i2c_deinit();                          // Must be after input, sound, and rtc
-    rg_display_deinit();                      // Do this very last to reduce flicker time
+    rg_display_clear(C_BLACK);                
+    rg_gui_draw_hourglass();                  
+    rg_system_event(RG_EVENT_SHUTDOWN, NULL); 
+#ifdef ESP_PLATFORM
+    vTaskDelay(pdMS_TO_TICKS(300));
+#endif
+    rg_audio_deinit();                        
+
+#ifdef ESP_PLATFORM
+    vTaskDelay(pdMS_TO_TICKS(50));
+#endif
+    rg_storage_deinit();                      
+    rg_input_wait_for_key(RG_KEY_ALL, 0, -1); 
+    rg_input_deinit();                        
+    rg_i2c_deinit();                          
+    rg_display_deinit();                      
 }
 
 void rg_system_shutdown(void)
@@ -898,12 +904,9 @@ void rg_system_sleep(void)
 void rg_system_restart(void)
 {
     RG_LOGW("Restarting system!");
-    shutdown_cleanup();
-#ifdef ESP_PLATFORM
+    rg_storage_deinit(); 
+    vTaskDelay(pdMS_TO_TICKS(100));
     esp_restart();
-#else
-    exit(1);
-#endif
 }
 
 void rg_system_exit(void)
